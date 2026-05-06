@@ -1,0 +1,124 @@
+* ============================================================
+* Three-Stage BJT Common-Emitter Amplifier
+* Author: Zaynab Mehraban
+* Tool: Ngspice
+* Description: AC-coupled three-stage CE amplifier chain with
+*              voltage divider biasing. Designed for wideband
+*              audio/IF amplification with ~60 dB total gain.
+* ============================================================
+
+.title Three-Stage BJT CE Amplifier - AC/DC/Transient Analysis
+
+* --- Power Supply ---
+Vcc vcc 0 DC 12
+
+* --- Input Signal ---
+Vin input 0 AC 10m SIN(0 10m 1k)
+
+* ============================================================
+* STAGE 1: Common-Emitter with Voltage Divider Bias
+* ============================================================
+* Biasing resistors
+R1a vcc base1 56k
+R2a base1 0 10k
+* Coupling capacitor (input)
+Cin input c_in1 1u
+C_base1 c_in1 base1 1u
+* Transistor
+Q1 coll1 base1 emit1 Q2N2222
+* Collector resistor
+Rc1 vcc coll1 4.7k
+* Emitter resistor with bypass cap
+Re1 emit1 0 1k
+Ce1 emit1 0 47u
+
+* ============================================================
+* STAGE 2: Common-Emitter
+* ============================================================
+* Coupling capacitor (interstage)
+Cc12 coll1 base2 0.47u
+* Biasing resistors
+R1b vcc base2 47k
+R2b base2 0 8.2k
+* Transistor
+Q2 coll2 base2 emit2 Q2N2222
+Rc2 vcc coll2 3.9k
+Re2 emit2 0 820
+Ce2 emit2 0 47u
+
+* ============================================================
+* STAGE 3: Common-Emitter
+* ============================================================
+* Coupling capacitor (interstage)
+Cc23 coll2 base3 0.47u
+* Biasing resistors
+R1c vcc base3 39k
+R2c base3 0 6.8k
+* Transistor
+Q3 coll3 base3 emit3 Q2N2222
+Rc3 vcc coll3 3.3k
+Re3 emit3 0 680
+Ce3 emit3 0 100u
+
+* Output coupling
+Cout coll3 output 1u
+Rload output 0 10k
+
+* ============================================================
+* Transistor Model
+* ============================================================
+.model Q2N2222 NPN (IS=14.34f BF=255.9 NF=1 VAF=74.03
++ IKF=0.2847 ISE=14.34f NE=1.307 BR=6.092 NR=1
++ VAR=28 IKR=0 ISC=0 NC=2 RB=10 IRB=0 RBM=10
++ RE=0 RC=1 CJE=22.01p VJE=0.7 MJE=0.377
++ TF=411.1p XTF=3 VTF=1.7 ITF=0.6 PTF=0
++ CJC=19.01p VJC=0.75 MJC=0.3416 XCJC=1
++ TR=46.91n CJS=0 VJS=0.75 MJS=0.333
++ XTB=1.5 EG=1.11 XTI=3 KF=0 AF=1 FC=0.5)
+
+* ============================================================
+* Analysis Commands
+* ============================================================
+
+* DC Operating Point
+.op
+
+* AC Analysis: 10 Hz to 100 MHz, 100 points per decade
+.ac dec 100 10 100Meg
+
+* Transient: 5 ms window, 1 us step (1 kHz input)
+.tran 1u 5m
+
+* ============================================================
+* Measurements
+* ============================================================
+.measure AC gain_max MAX vdb(output)
+.measure AC bw_low WHEN vdb(output)=(gain_max-3) CROSS=1
+.measure AC bw_high WHEN vdb(output)=(gain_max-3) CROSS=LAST
+.measure AC phase_at_1k FIND vp(output) AT=1k
+
+* ============================================================
+* Control Block
+* ============================================================
+.control
+  run
+
+  * --- DC Operating Point ---
+  print all
+  echo "========== DC Bias Points =========="
+  print v(base1) v(coll1) v(emit1)
+  print v(base2) v(coll2) v(emit2)
+  print v(base3) v(coll3) v(emit3)
+
+  * --- AC Response (Bode Plot) ---
+  settype decibel output
+  plot vdb(output) title 'Voltage Gain (dB) vs Frequency'
+  plot vp(output) title 'Phase (degrees) vs Frequency'
+
+  * --- Transient Response ---
+  plot v(input) v(output) title 'Input vs Output - Transient Response'
+
+  echo "========== Simulation Complete =========="
+.endc
+
+.end

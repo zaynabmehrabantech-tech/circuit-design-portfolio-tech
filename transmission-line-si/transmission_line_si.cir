@@ -1,0 +1,146 @@
+* ============================================================
+* Transmission Line Signal Integrity Analysis
+* Author: Zaynab Mehraban
+* Tool: Ngspice
+* Description: Characterization of transmission line effects
+*              on high-speed digital signals: impedance
+*              mismatch, reflections, termination strategies,
+*              and crosstalk between adjacent traces.
+* ============================================================
+
+.title Transmission Line Signal Integrity Study
+
+* ============================================================
+* TEST 1: Impedance Mismatch & Reflections
+* 50-ohm source driving a 50-ohm line into mismatched loads
+* ============================================================
+
+* --- Driver (50-ohm source impedance) ---
+Vdrv1 drv1 0 PULSE(0 3.3 1n 0.2n 0.2n 5n 20n)
+Rs1 drv1 tl1_in 50
+
+* --- 50-ohm Transmission Line (6 inches, FR4) ---
+* Td = length / velocity = 0.1524m / (1.5e8 m/s) ~ 1.016 ns
+T1 tl1_in 0 tl1_out 0 Z0=50 TD=1n
+
+* --- Load: Properly Terminated (50 ohm) ---
+Rterm tl1_out 0 50
+
+* ============================================================
+* TEST 2: Unterminated Line (Open Load)
+* Shows reflection coefficient = +1
+* ============================================================
+Vdrv2 drv2 0 PULSE(0 3.3 1n 0.2n 0.2n 5n 20n)
+Rs2 drv2 tl2_in 50
+
+T2 tl2_in 0 tl2_out 0 Z0=50 TD=1n
+
+* Open load (very high impedance)
+Ropen tl2_out 0 1MEG
+
+* ============================================================
+* TEST 3: Mismatched Load (150 ohm)
+* Reflection coefficient = (150-50)/(150+50) = 0.5
+* ============================================================
+Vdrv3 drv3 0 PULSE(0 3.3 1n 0.2n 0.2n 5n 20n)
+Rs3 drv3 tl3_in 50
+
+T3 tl3_in 0 tl3_out 0 Z0=50 TD=1n
+
+Rmismatch tl3_out 0 150
+
+* ============================================================
+* TEST 4: Series Termination (at Source)
+* Source-end termination: Rs_total = Z0
+* ============================================================
+Vdrv4 drv4 0 PULSE(0 3.3 1n 0.2n 0.2n 5n 20n)
+Rs4_drv drv4 ser_term 10
+Rs4_term ser_term tl4_in 40
+
+T4 tl4_in 0 tl4_out 0 Z0=50 TD=1n
+
+* High-impedance CMOS load
+Rcmos tl4_out 0 1MEG
+Ccmos tl4_out 0 3p
+
+* ============================================================
+* TEST 5: Crosstalk Between Adjacent Traces
+* Coupled transmission lines (aggressor + victim)
+* ============================================================
+
+* Aggressor driver
+Vagg agg_drv 0 PULSE(0 3.3 1n 0.2n 0.2n 5n 20n)
+Rs_agg agg_drv agg_in 50
+
+* Victim line (quiet, terminated both ends)
+Rvic_near vic_near 0 50
+Rvic_far vic_far 0 50
+
+* Coupled lines model
+* Z0e = 62 ohm (even mode), Z0o = 42 ohm (odd mode)
+* Coupling length ~ 4 inches, Td ~ 0.68 ns
+K_couple L_agg L_vic 0.15
+
+* Aggressor line
+L_agg agg_in agg_out 8n
+R_agg_term agg_out 0 50
+
+* Victim line
+L_vic vic_near vic_far 8n
+
+* Parasitic capacitive coupling
+Cc_near agg_in vic_near 0.5p
+Cc_far agg_out vic_far 0.5p
+
+* ============================================================
+* Analysis
+* ============================================================
+.tran 0.02n 25n UIC
+
+* ============================================================
+* Measurements
+* ============================================================
+* Reflection amplitude on unterminated line
+.measure TRAN v_incident MAX v(tl2_in) FROM=0 TO=3n
+.measure TRAN v_reflected MAX v(tl2_out) FROM=0 TO=5n
+.measure TRAN v_overshoot MAX v(tl2_out) FROM=0 TO=10n
+
+* Crosstalk
+.measure TRAN xtalk_near MAX v(vic_near) FROM=0 TO=5n
+.measure TRAN xtalk_far MAX v(vic_far) FROM=0 TO=5n
+
+* Settling time on terminated line
+.measure TRAN t_settle WHEN v(tl1_out)=3.0 RISE=1
+
+* ============================================================
+* Control Block
+* ============================================================
+.control
+  run
+
+  * --- Test 1: Matched Termination ---
+  plot v(tl1_in) v(tl1_out) title 'Matched 50-ohm Termination' xlabel 'Time (s)' ylabel 'Voltage (V)'
+
+  * --- Test 2: Open (Unterminated) ---
+  plot v(tl2_in) v(tl2_out) title 'Unterminated Line (Open Load) - Full Reflection' xlabel 'Time (s)' ylabel 'Voltage (V)'
+
+  * --- Test 3: Mismatched (150 ohm) ---
+  plot v(tl3_in) v(tl3_out) title 'Mismatched Load (150 ohm) - Partial Reflection' xlabel 'Time (s)' ylabel 'Voltage (V)'
+
+  * --- Test 4: Series Terminated ---
+  plot v(ser_term) v(tl4_in) v(tl4_out) title 'Series (Source) Termination' xlabel 'Time (s)' ylabel 'Voltage (V)'
+
+  * --- Test 5: Crosstalk ---
+  plot v(agg_in) v(vic_near) v(vic_far) title 'Crosstalk: Near-End (NEXT) and Far-End (FEXT)' xlabel 'Time (s)' ylabel 'Voltage (V)'
+
+  * --- Comparison: All termination strategies at load ---
+  plot v(tl1_out) v(tl2_out) v(tl3_out) v(tl4_out) title 'Load Voltage Comparison - All Termination Strategies' xlabel 'Time (s)' ylabel 'Voltage (V)'
+
+  echo "========== Signal Integrity Results =========="
+  print v_incident v_reflected v_overshoot
+  print xtalk_near xtalk_far
+  print t_settle
+  echo "========== Simulation Complete =========="
+.endc
+
+.end

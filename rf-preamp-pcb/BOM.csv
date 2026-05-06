@@ -1,0 +1,19 @@
+Reference,Value,Package,Description,Manufacturer,MPN,Qty
+Q1,BFR92A,SOT-23,NPN RF transistor ft=5GHz NF=1.1dB,NXP,BFR92A,1
+R_bias1,2.7k,0402,Bias resistor (thick film 1%),Yageo,RC0402FR-072K7L,1
+R_bias2,1.2k,0402,Bias resistor (thick film 1%),Yageo,RC0402FR-071K2L,1
+R_e,12,0402,Emitter degeneration resistor (thin film 1%),Vishay,CRCW040212R0FKED,1
+R_c,330,0402,Collector load resistor,Yageo,RC0402FR-07330RL,1
+L_in,12nH,0402,Input matching inductor (high-Q RF),Murata,LQW15AN12NJ00D,1
+L_choke,100nH,0402,RF choke (collector supply),Murata,LQW15AN100NJ00D,1
+L_out,8.2nH,0402,Output matching inductor (high-Q RF),Murata,LQW15ANR82J00D,1
+C_in,10pF,0402,Input matching capacitor (C0G/NP0),Murata,GRM1555C1H100JA01D,1
+C_block_in,100pF,0402,DC blocking capacitor input (C0G/NP0),Murata,GRM1555C1H101JA01D,1
+C_e,1nF,0402,Emitter bypass capacitor (C0G/NP0),Murata,GRM1555C1H102JA01D,1
+C_block_out,100pF,0402,DC blocking capacitor output (C0G/NP0),Murata,GRM1555C1H101JA01D,1
+C_out,6.8pF,0402,Output matching capacitor (C0G/NP0),Murata,GRM1555C1H6R8DA01D,1
+C_vcc1,100nF,0402,Supply decoupling (MLCC X7R),Murata,GRM155R71C104KA88D,1
+C_vcc2,10pF,0402,Supply decoupling HF (C0G/NP0),Murata,GRM1555C1H100JA01D,1
+J1,SMA,SMA_EDGE,RF input connector (50 ohm),Amphenol,901-10510,1
+J2,SMA,SMA_EDGE,RF output connector (50 ohm),Amphenol,901-10510,1
+J3,2-pin header,1x02_2.54mm,DC power input (5V),Wurth,61300211121,1

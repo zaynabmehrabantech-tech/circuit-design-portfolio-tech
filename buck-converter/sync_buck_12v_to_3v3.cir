@@ -1,0 +1,113 @@
+* ============================================================
+* Synchronous Buck Converter - 12V to 3.3V @ 2A
+* Author: Zaynab Mehraban
+* Tool: Ngspice
+* Description: PWM-driven synchronous buck converter with
+*              LC output filter. Transient and steady-state
+*              analysis for output regulation, ripple current,
+*              and switching waveforms.
+* ============================================================
+
+.title Synchronous Buck Converter - 12V to 3.3V / 2A
+
+* --- Input Supply ---
+Vin vin 0 DC 12
+
+* ============================================================
+* PWM Drive Signal
+* Duty cycle: D = Vout/Vin = 3.3/12 = 0.275
+* Switching frequency: 500 kHz (period = 2 us)
+* ============================================================
+Vpwm pwm 0 PULSE(0 5 0 10n 10n 550n 2u)
+
+* ============================================================
+* Power Stage - Synchronous Buck
+* ============================================================
+
+* High-side MOSFET (modeled as voltage-controlled switch)
+S1 vin sw pwm 0 HSIDE
+.model HSIDE SW(VT=2.5 RON=25m ROFF=10Meg)
+
+* Low-side MOSFET (synchronous rectifier, complementary drive)
+* Inverted gate drive
+B_inv inv_pwm 0 V = 5 - V(pwm)
+S2 sw 0 inv_pwm 0 LSIDE
+.model LSIDE SW(VT=2.5 RON=18m ROFF=10Meg)
+
+* Anti-parallel diode on low-side (dead-time conduction)
+D1 0 sw DSCHOTTKY
+.model DSCHOTTKY D(IS=1u RS=30m BV=40 N=1.05 CJO=100p)
+
+* ============================================================
+* Output LC Filter
+* ============================================================
+* Inductor: 4.7 uH (selected for < 30% ripple at 2A)
+L1 sw vout_pre 4.7u IC=0
+* DCR of inductor
+R_dcr vout_pre vout 25m
+
+* Output capacitor: 47 uF ceramic (low ESR)
+C1 vout 0 47u IC=3.3
+R_esr vout vesr 5m
+C1_ideal vesr 0 47u
+
+* ============================================================
+* Load
+* ============================================================
+Rload vout 0 1.65
+
+* ============================================================
+* Analysis Commands
+* ============================================================
+
+* Transient: 200 us startup + steady state observation
+.tran 5n 200u UIC
+
+* ============================================================
+* Measurements
+* ============================================================
+* Steady-state measurements (after 150 us settling)
+.measure TRAN vout_avg AVG v(vout) FROM=150u TO=200u
+.measure TRAN vout_ripple PP v(vout) FROM=150u TO=200u
+.measure TRAN iL_avg AVG i(L1) FROM=150u TO=200u
+.measure TRAN iL_ripple PP i(L1) FROM=150u TO=200u
+.measure TRAN iL_max MAX i(L1) FROM=150u TO=200u
+.measure TRAN iL_min MIN i(L1) FROM=150u TO=200u
+
+* ============================================================
+* Control Block
+* ============================================================
+.control
+  run
+
+  * --- Output Voltage ---
+  plot v(vout) title 'Output Voltage (Target: 3.3V)' ylabel 'Voltage (V)'
+
+  * --- Inductor Current ---
+  plot -i(L1) title 'Inductor Current' ylabel 'Current (A)'
+
+  * --- Switching Node Waveform ---
+  plot v(sw) title 'Switching Node Voltage' ylabel 'Voltage (V)'
+
+  * --- Steady-State Zoom (last 20 us) ---
+  plot v(vout) xlimit 180u 200u title 'Output Voltage Ripple (Steady State)'
+  plot -i(L1) xlimit 180u 200u title 'Inductor Current Ripple (Steady State)'
+
+  * --- Results Summary ---
+  echo "========== Buck Converter Performance =========="
+  echo "Target: Vout = 3.3V, Iout = 2A"
+  print vout_avg vout_ripple
+  print iL_avg iL_ripple iL_max iL_min
+
+  * --- Efficiency Estimate ---
+  let pin_avg = avg(v(vin) * (-i(Vin)))
+  let pout_avg = avg(v(vout) * v(vout) / 1.65)
+  echo "Input Power (avg):"
+  print mean(pin_avg)
+  echo "Output Power (avg):"
+  print mean(pout_avg)
+
+  echo "========== Simulation Complete =========="
+.endc
+
+.end

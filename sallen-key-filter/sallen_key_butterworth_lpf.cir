@@ -1,0 +1,100 @@
+* ============================================================
+* 4th-Order Sallen-Key Butterworth Low-Pass Filter
+* Author: Zaynab Mehraban
+* Tool: Ngspice
+* Description: Two cascaded 2nd-order Sallen-Key sections
+*              implementing a Butterworth response with
+*              fc = 10 kHz for audio signal conditioning.
+* ============================================================
+
+.title 4th-Order Sallen-Key Butterworth LPF - fc = 10 kHz
+
+* --- Power Supply ---
+Vpos vpos 0 DC 12
+Vneg vneg 0 DC -12
+
+* --- Input Signal ---
+Vin input 0 AC 1 SIN(0 1 1k)
+
+* ============================================================
+* STAGE 1: 2nd-Order Sallen-Key (Q = 0.5412)
+* Butterworth coefficients: a1 = 1.8478, b1 = 1.0000
+* Component values calculated for fc = 10 kHz
+* ============================================================
+R1a input n1a 1.5k
+R2a n1a n2a 1.5k
+C1a n2a 0 10n
+C2a n1a out1 5.6n
+
+* Op-Amp (Stage 1) - Ideal VCVS model
+* Unity-gain buffer configuration
+E1 out1 0 0 n2a -200k
+* Feedback path (unity gain)
+
+* ============================================================
+* STAGE 2: 2nd-Order Sallen-Key (Q = 1.3066)
+* Butterworth coefficients: a2 = 0.7654, b2 = 1.0000
+* ============================================================
+R1b out1 n1b 1.5k
+R2b n1b n2b 1.5k
+C1b n2b 0 22n
+C2b n1b output 2.7n
+
+* Op-Amp (Stage 2) - Ideal VCVS model
+E2 output 0 0 n2b -200k
+
+* Output load
+Rload output 0 100k
+
+* ============================================================
+* Analysis Commands
+* ============================================================
+
+* AC Analysis: 1 Hz to 10 MHz
+.ac dec 200 1 10Meg
+
+* Transient: mixed frequency input test
+* (1 kHz passband + 50 kHz stopband)
+Vin_test input_test 0 SIN(0 1 1k)
+Vin_noise input_noise 0 SIN(0 0.5 50k)
+Vmixed input_mixed 0 SIN(0 1 1k)
+
+.tran 0.5u 2m
+
+* ============================================================
+* Measurements
+* ============================================================
+.measure AC gain_dc FIND vdb(output) AT=100
+.measure AC gain_fc FIND vdb(output) AT=10k
+.measure AC gain_2fc FIND vdb(output) AT=20k
+.measure AC gain_10fc FIND vdb(output) AT=100k
+.measure AC fc_actual WHEN vdb(output)=(gain_dc-3) CROSS=1
+
+* ============================================================
+* Control Block
+* ============================================================
+.control
+  run
+
+  * --- Magnitude Response ---
+  plot vdb(output) title '4th-Order Butterworth LPF - Magnitude Response (dB)'
+  
+  * --- Phase Response ---
+  plot vp(output) title '4th-Order Butterworth LPF - Phase Response'
+  
+  * --- Verify rolloff rate ---
+  echo "========== Filter Performance =========="
+  echo "Expected: -3 dB at 10 kHz, -80 dB/decade rolloff"
+  print gain_dc gain_fc gain_2fc gain_10fc fc_actual
+  
+  * --- Group Delay ---
+  let gd = -deriv(vp(output)) / 360.0
+  plot gd title 'Group Delay vs Frequency'
+
+  * --- Transient Response ---
+  plot v(input) v(output) title 'Transient: Input vs Filtered Output'
+
+  echo "========== Simulation Complete =========="
+.endc
+
+.end

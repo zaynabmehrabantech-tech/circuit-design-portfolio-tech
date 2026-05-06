@@ -1,0 +1,140 @@
+* ============================================================
+* Low-Noise RF Preamplifier - Pre-Layout Simulation
+* Author: Zaynab Mehraban
+* Tool: Ngspice
+* Description: BFR92A-based common-emitter LNA for 100-500 MHz
+*              reception. Pre-layout simulation to verify gain,
+*              noise figure estimate, and input/output matching
+*              before PCB layout in KiCad.
+* ============================================================
+
+.title Low-Noise RF Preamplifier - 100 to 500 MHz
+
+* --- Power Supply ---
+Vcc vcc 0 DC 5.0
+
+* --- RF Input (50-ohm source) ---
+Vin rf_in 0 AC 1m
+
+* Source impedance
+Rs rf_in input_match 50
+
+* ============================================================
+* Input Matching Network (L-match for ~200 MHz center)
+* Transforms 50 ohm source to optimal noise impedance
+* ============================================================
+L_in input_match base_dc 12n
+C_in base_dc base_ac 10p
+
+* DC blocking
+C_block_in base_ac base 100p
+
+* ============================================================
+* LNA Stage - BFR92A (Common Emitter)
+* Biased at Ic ~ 8 mA, Vce ~ 2.5V for low-noise operation
+* ============================================================
+
+* Bias network
+R_bias1 vcc base_dc 2.7k
+R_bias2 base_dc 0 1.2k
+
+* Transistor
+Q1 collector base emitter BFR92A
+
+* Emitter degeneration (partial bypass for gain control)
+R_e emitter 0 12
+C_e emitter 0 1n
+
+* Collector load (RF choke + resistor)
+L_choke vcc collector 100n
+R_c vcc collector 330
+
+* ============================================================
+* Output Matching Network
+* Transforms collector impedance to 50 ohm output
+* ============================================================
+C_block_out collector out_match 100p
+L_out out_match output 8.2n
+C_out output 0 6.8p
+
+* 50-ohm load
+Rload output 0 50
+
+* ============================================================
+* BFR92A Transistor Model (NXP/Philips)
+* NPN RF transistor, ft ~ 5 GHz
+* ============================================================
+.model BFR92A NPN (
++ IS=3.28e-16 BF=145 NF=1.0 VAF=28
++ IKF=0.18 ISE=3.5e-15 NE=1.6
++ BR=15 NR=1 VAR=10 IKR=0
++ ISC=1.2e-16 NC=1.8
++ RB=4.5 IRB=0 RBM=2.5
++ RE=0.5 RC=3.5
++ CJE=1.2p VJE=0.7 MJE=0.35
++ CJC=0.65p VJC=0.5 MJC=0.3 XCJC=0.4
++ TF=12p XTF=4 VTF=3 ITF=0.35
++ TR=120p
++ CJS=0 VJS=0.75 MJS=0
++ EG=1.11 XTI=3 XTB=1.5
++ KF=2e-16 AF=1.2 FC=0.5)
+
+* ============================================================
+* Analysis Commands
+* ============================================================
+
+* DC Operating Point
+.op
+
+* AC Analysis: 10 MHz to 2 GHz
+.ac dec 200 10Meg 2G
+
+* Transient: 200 MHz RF input burst
+Vin_tran rf_in_tran 0 SIN(0 1m 200Meg)
+.tran 0.1n 50n
+
+* Stability check: loop gain analysis
+* (S-parameter approximation via AC response)
+
+* ============================================================
+* Measurements
+* ============================================================
+.measure AC gain_200mhz FIND vdb(output) AT=200Meg
+.measure AC gain_100mhz FIND vdb(output) AT=100Meg
+.measure AC gain_500mhz FIND vdb(output) AT=500Meg
+.measure AC bw_low WHEN vdb(output)=(gain_200mhz-3) CROSS=1
+.measure AC bw_high WHEN vdb(output)=(gain_200mhz-3) CROSS=LAST
+.measure AC phase_200 FIND vp(output) AT=200Meg
+
+* Input/output return loss approximation
+* (referenced to 50 ohm)
+
+* ============================================================
+* Control Block
+* ============================================================
+.control
+  run
+
+  * --- DC Bias ---
+  echo "========== DC Operating Point =========="
+  print v(base) v(collector) v(emitter)
+  print @Q1[ic] @Q1[vce] @Q1[vbe]
+
+  * --- Gain vs Frequency ---
+  plot vdb(output) title 'LNA Gain (dB) vs Frequency'
+
+  * --- Phase Response ---
+  plot vp(output) title 'LNA Phase vs Frequency'
+
+  * --- Input Impedance (approximate) ---
+  let z_in = v(input_match) / (v(rf_in) - v(input_match)) * 50
+  plot abs(z_in) title 'Input Impedance Magnitude vs Frequency'
+
+  * --- Results ---
+  echo "========== LNA Performance =========="
+  print gain_100mhz gain_200mhz gain_500mhz
+  print bw_low bw_high
+  echo "========== Simulation Complete =========="
+.endc
+
+.end
